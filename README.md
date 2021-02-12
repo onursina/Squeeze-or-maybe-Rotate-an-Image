@@ -1,0 +1,6 @@
+# Squeeze-or-maybe-Rotate-an-Image-
+Great pic squeezing and rotation algorithms written in Kotlin
+
+My backwards solution for the path is great:
+After Dijkstra's algorithm we know the exit point but we don't know the path...
+So use my backwards solution (fun backwardsReSolvePath & fun findX & fun checkAt) for it doesn't require any memory or deep calculations....
