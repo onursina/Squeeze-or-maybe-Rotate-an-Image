@@ -1,0 +1,116 @@
+package seamcarving  // a D Y N A M I C solution: State of the art backwards re-solution patent pending ;)
+
+import java.awt.Color
+import java.awt.image.BufferedImage
+import java.io.File
+import javax.imageio.ImageIO
+import kotlin.math.pow
+import kotlin.math.round
+import kotlin.math.sqrt
+
+var enArray: Array<DoubleArray> = emptyArray()
+var pathArray: Array<DoubleArray> = emptyArray()
+
+fun main(args:Array<String>) {
+    var image = ImageIO.read(File(args[args.indexOf("-in") + 1])) //READ
+    val (wid, hei) = arrayOf(args[args.indexOf("-width") + 1].toInt(), args[args.indexOf("-height") + 1].toInt())
+    
+    repeat(wid) {
+        calculateEnergyMap(image)
+        calculatePathMap(image)
+        backwardsReSolvePath(image)
+        image = removePixels(image)
+    }
+
+    image = rotateImageMinus90(image)
+    repeat(hei) {
+        calculateEnergyMap(image)
+        calculatePathMap(image)
+        backwardsReSolvePath(image)
+        image = removePixels(image)
+    }
+    image = rotateImage90(image)
+    
+    ImageIO.write(image, "png", File(args[args.indexOf("-out") + 1])) //SAVE
+}
+
+fun removePixels(oldImage: BufferedImage): BufferedImage {
+    val newImage = BufferedImage(oldImage.width-1, oldImage.height, BufferedImage.TYPE_INT_RGB)
+    for (y in 0 until oldImage.height) {
+        var x = 0
+        while (oldImage.getRGB(x,y) != Color.RED.rgb) {
+            newImage.setRGB(x, y, oldImage.getRGB(x,y))
+            x++
+        }
+        while (x < oldImage.width-1) {
+            x++
+            newImage.setRGB(x-1, y, oldImage.getRGB(x, y))
+        }
+    }
+    return newImage
+}
+
+fun calculateEnergyMap(image: BufferedImage) {
+    enArray = Array(image.height) { DoubleArray(image.width) { 0.0 } }
+    for (x in 0 until image.width) for (y in 0 until image.height) { enArray[y][x] = energy(image, x, y) }
+}
+fun energy(orjImage: BufferedImage, x:Int, y:Int): Double {
+    val deltaX = when (x) {
+        0 -> delta(orjImage, 2,0, y, y)
+        orjImage.width - 1 -> delta(orjImage, orjImage.width - 1, orjImage.width - 3, y, y)
+        else -> delta(orjImage, x+1, x-1, y, y)
+    }
+    val deltaY = when (y) {
+        0 -> { delta(orjImage, x, x, 2, 0) }
+        orjImage.height - 1 -> { delta(orjImage, x, x, orjImage.height - 1, orjImage.height - 3) }
+        else -> delta(orjImage, x, x, y+1, y-1)
+    }
+    return round(sqrt(deltaY + deltaX) * 100000.0) / 100000.0
+}
+fun delta(orjImage: BufferedImage, xPlus: Int, xMinus:Int, yPlus: Int, yMinus: Int): Double {
+    return (Color(orjImage.getRGB(xPlus, yPlus)).red - Color(orjImage.getRGB(xMinus, yMinus)).red).toDouble().pow(2.0) +
+            (Color(orjImage.getRGB(xPlus, yPlus)).green - Color(orjImage.getRGB(xMinus, yMinus)).green).toDouble().pow(2) +
+            (Color(orjImage.getRGB(xPlus, yPlus)).blue - Color(orjImage.getRGB(xMinus, yMinus)).blue).toDouble().pow(2)
+}
+
+fun calculatePathMap(image: BufferedImage) {
+    pathArray = Array(image.height) { DoubleArray(image.width) { 0.0 } }
+    for (y in 0 until image.height) for (x in 0 until image.width) { findPathEnergy(x, y) }
+}
+fun findPathEnergy(x: Int, y:Int) {
+    pathArray[y][x] = minOf(
+        pathArray[(y-1).coerceAtLeast(0)][x],
+        pathArray[(y-1).coerceAtLeast(0)][(x-1).coerceAtLeast(0)],
+        pathArray[(y-1).coerceAtLeast(0)][(x+1).coerceAtMost(pathArray[0].lastIndex)]) + enArray[y][x]
+    pathArray[y][x] = round(pathArray[y][x] * 100000.0) / 100000.0
+}
+fun backwardsReSolvePath(image: BufferedImage) {
+    var currentX = pathArray[pathArray.lastIndex].indexOfFirst { it == pathArray[pathArray.lastIndex].minOrNull()!! }
+    for (y in (image.height - 1) downTo 0) {
+        image.setRGB(currentX, y, Color.RED.rgb)
+        if (y > 0) { currentX = findX(currentX, y) }
+    }
+}
+fun findX(x: Int, y: Int): Int {
+    return when {
+        checkAt(x, y, (x - 1).coerceAtLeast(0)) -> (x - 1).coerceAtLeast(0)
+        checkAt(x, y, x) -> x
+        else -> (x + 1).coerceAtMost(pathArray[0].lastIndex)
+    }
+}
+fun checkAt(x: Int, y: Int, nx: Int): Boolean = round((pathArray[y][x] - enArray[y][x]) * 100000.0) / 100000.0 == pathArray[y-1][nx]
+
+fun rotateImageMinus90(oldImage: BufferedImage):BufferedImage {
+    val image = BufferedImage(oldImage.height, oldImage.width, BufferedImage.TYPE_INT_RGB)
+    for (x in 0 until oldImage.width) for (y in 0 until oldImage.height) {
+        image.setRGB(y, x, oldImage.getRGB(x, oldImage.height-1-y))
+    }
+    return image
+}
+fun rotateImage90(oldImage: BufferedImage):BufferedImage {
+    val newImage = BufferedImage(oldImage.height, oldImage.width, BufferedImage.TYPE_INT_RGB)
+    for (y in 0 until oldImage.height) for (x in 0 until oldImage.width) {
+        newImage.setRGB(y, oldImage.width-1-x, oldImage.getRGB(x, y))
+    }
+    return newImage
+}
