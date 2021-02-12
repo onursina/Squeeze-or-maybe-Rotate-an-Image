@@ -1,4 +1,4 @@
-# Squeeze-or-maybe-Rotate-an-Image-
+# Squeeze-or-maybe-Rotate-an-Image
 Great pic squeezing and rotation algorithms written in Kotlin
 
 My backwards solution for the path is great:
